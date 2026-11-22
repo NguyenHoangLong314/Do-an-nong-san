@@ -4,7 +4,7 @@ Repository khởi tạo cho dự án thương mại điện tử nông sản.
 
 ## Cấu trúc
 
-- `Backend(Laravel)/` — ứng dụng Laravel, giao diện Blade, CSS và Vite.
+- `Backend(Laravel)/` — ứng dụng Laravel, giao diện Blade
 - `Frontend(React.js)/` — ứng dụng React + Vite được khởi tạo riêng.
 
 ## Backend Laravel
