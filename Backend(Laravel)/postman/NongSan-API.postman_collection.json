@@ -1,0 +1,394 @@
+{
+  "info": {
+    "_postman_id": "4fdb4957-a9f1-4750-908c-4f7fa885bf9d",
+    "name": "Nong San - API va FEFO",
+    "description": "Kịch bản xác thực, CRUD lô hàng và đặt hàng FEFO. Chạy db:seed trước; điền customerEmail/customerPassword. Token được lưu tự động sau đăng nhập.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "customerEmail",
+      "value": "customer@example.com"
+    },
+    {
+      "key": "customerPassword",
+      "value": "password"
+    },
+    {
+      "key": "staffEmail",
+      "value": "staff@example.com"
+    },
+    {
+      "key": "staffPassword",
+      "value": "password"
+    },
+    {
+      "key": "productId",
+      "value": "2"
+    },
+    {
+      "key": "batchId",
+      "value": "1"
+    },
+    {
+      "key": "shippingQuoteToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"mat_khau\": \"{{customerPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login succeeds', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "if (data.token) pm.collectionVariables.set('token', data.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Staff (use before batch CRUD)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{staffEmail}}\",\n  \"mat_khau\": \"{{staffPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login succeeds', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "if (data.token) pm.collectionVariables.set('token', data.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Farm Batch CRUD (Staff/Admin)",
+      "item": [
+        {
+          "name": "GET batches",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/farm/batches"
+          }
+        },
+        {
+          "name": "POST create batch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ma_san_pham\": {{productId}},\n  \"ngay_thu_hoach\": \"2026-11-25\",\n  \"ngay_het_han\": \"2026-12-02\",\n  \"so_luong_nhap\": 20\n}"
+            },
+            "url": "{{baseUrl}}/farm/batches"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Batch created', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "if (data.batch?.ma_lo_hang) pm.collectionVariables.set('batchId', data.batch.ma_lo_hang);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT update batch dates",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ngay_thu_hoach\": \"2026-11-25\",\n  \"ngay_het_han\": \"2026-12-05\"\n}"
+            },
+            "url": "{{baseUrl}}/farm/batches/{{batchId}}"
+          }
+        },
+        {
+          "name": "DELETE batch (expected 409 while stock remains)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": "{{baseUrl}}/farm/batches/{{batchId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cannot delete batch with stock', () => pm.response.to.have.status(409));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Orders and FEFO (Customer)",
+      "item": [
+        {
+          "name": "POST shipping quote (GHTK)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": { \"province\": \"Thành phố Hồ Chí Minh\", \"district\": \"Quận 1\", \"ward\": \"Phường Bến Nghé\", \"address\": \"12 Nguyễn Huệ\" },\n  \"origin\": { \"latitude\": 11.9404, \"longitude\": 108.4583 },\n  \"items\": [{ \"ma_san_pham\": {{productId}}, \"so_luong\": 10 }]\n}"
+            },
+            "url": "{{baseUrl}}/shipping/quote"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('GHTK shipping quote succeeds', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('shippingQuoteToken', data.quote_token);",
+                  "pm.test('GHTK fee returned', () => pm.expect(data.fee).to.be.a('number'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST order - allocate across FEFO lots (seeded tomato 10kg)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia_chi_giao_hang\": \"12 Nguyễn Huệ, Phường Bến Nghé, Quận 1, Thành phố Hồ Chí Minh\",\n  \"shipping_destination\": { \"province\": \"Thành phố Hồ Chí Minh\", \"district\": \"Quận 1\", \"ward\": \"Phường Bến Nghé\", \"address\": \"12 Nguyễn Huệ\" },\n  \"phuong_thuc_thanh_toan\": \"cod\",\n  \"shipping_quote_token\": \"{{shippingQuoteToken}}\",\n  \"items\": [{ \"ma_san_pham\": {{productId}}, \"so_luong\": 10 }]\n}"
+            },
+            "url": "{{baseUrl}}/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Order created', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "pm.test('Order contains lot-level details', () => pm.expect(data.order?.items?.length).to.be.above(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST shipping quote for insufficient stock case",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": { \"province\": \"Thành phố Hồ Chí Minh\", \"district\": \"Quận 1\", \"ward\": \"Phường Bến Nghé\", \"address\": \"12 Nguyễn Huệ\" },\n  \"origin\": { \"latitude\": 11.9404, \"longitude\": 108.4583 },\n  \"items\": [{ \"ma_san_pham\": {{productId}}, \"so_luong\": 10000 }]\n}"
+            },
+            "url": "{{baseUrl}}/shipping/quote"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Shipping quote for shortage case succeeds', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('shippingQuoteToken', data.quote_token);",
+                  "pm.test('Quote token is returned for matching 10000 kg cart', () => pm.expect(data.quote_token).to.be.a('string').and.not.empty);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST order - insufficient valid stock (expected 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia_chi_giao_hang\": \"12 Nguyễn Huệ, Phường Bến Nghé, Quận 1, Thành phố Hồ Chí Minh\",\n  \"shipping_destination\": { \"province\": \"Thành phố Hồ Chí Minh\", \"district\": \"Quận 1\", \"ward\": \"Phường Bến Nghé\", \"address\": \"12 Nguyễn Huệ\" },\n  \"phuong_thuc_thanh_toan\": \"cod\",\n  \"shipping_quote_token\": \"{{shippingQuoteToken}}\",\n  \"items\": [{ \"ma_san_pham\": {{productId}}, \"so_luong\": 10000 }]\n}"
+            },
+            "url": "{{baseUrl}}/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Insufficient inventory is rejected', () => pm.response.to.have.status(422));",
+                  "const data = pm.response.json();",
+                  "pm.test('API returns consistent error JSON', () => pm.expect(data.status).to.eql('error'));",
+                  "pm.test('API explains the error', () => pm.expect(data.message).to.be.a('string').and.not.empty);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

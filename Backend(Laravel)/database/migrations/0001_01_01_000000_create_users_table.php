@@ -11,14 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
-            $table->timestamps();
+        Schema::create('NguoiDung', function (Blueprint $table) {
+            $table->bigIncrements('ma_nguoi_dung');
+            $table->string('ho_ten', 100);
+            $table->string('email', 150)->unique();
+            $table->string('mat_khau');
+            $table->string('vai_tro', 20)->default('Customer')->index();
+            $table->dateTime('ngay_tao')->useCurrent();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -42,7 +41,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('NguoiDung');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }
