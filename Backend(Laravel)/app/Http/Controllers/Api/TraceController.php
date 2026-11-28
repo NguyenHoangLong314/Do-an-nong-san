@@ -29,6 +29,11 @@ class TraceController extends Controller
             ], 404);
         }
 
+        $categoryName = mb_strtolower((string) $batch->product?->category?->ten_danh_muc, 'UTF-8');
+        if ($batch->product?->don_vi_tinh === 'bao' || str_contains($categoryName, 'phân bón')) {
+            $batch->setRelation('logs', collect());
+        }
+
         return response()->json($batch);
     }
 }

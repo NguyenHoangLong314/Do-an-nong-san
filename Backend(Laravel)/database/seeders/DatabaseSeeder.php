@@ -74,6 +74,9 @@ class DatabaseSeeder extends Seeder
             foreach (LoHang::with('logs')->get() as $demoBatch) {
                 // Populate existing manually created lots too, but never overwrite a real journal.
                 if (!$demoBatch->ngay_thu_hoach || $demoBatch->logs->isNotEmpty()) continue;
+                $product = $demoBatch->product;
+                $categoryName = mb_strtolower((string) $product?->category?->ten_danh_muc, 'UTF-8');
+                if ($product?->don_vi_tinh === 'bao' || str_contains($categoryName, 'phân bón')) continue;
                 foreach ($activities as [$daysBeforeHarvest, $action, $note, $time]) {
                     $loggedAt = $demoBatch->ngay_thu_hoach->copy()->subDays($daysBeforeHarvest)->setTimeFromTimeString($time);
                     NhatKyCanhTac::firstOrCreate([

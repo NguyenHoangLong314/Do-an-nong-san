@@ -87,6 +87,12 @@ class FarmController extends Controller
 
     public function storeLog(Request $request, LoHang $batch)
     {
+        $batch->loadMissing('product.category');
+        $categoryName = mb_strtolower((string) $batch->product?->category?->ten_danh_muc, 'UTF-8');
+        if ($batch->product?->don_vi_tinh === 'bao' || str_contains($categoryName, 'phân bón')) {
+            abort(422, 'Sản phẩm phân bón không sử dụng nhật ký canh tác theo lô.');
+        }
+
         $data = $request->validate([
             'hanh_dong' => ['required', 'string', 'max:150'],
             'ghi_chu' => ['nullable', 'string', 'max:5000'],
