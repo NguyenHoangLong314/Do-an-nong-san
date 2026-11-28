@@ -38,6 +38,7 @@ Route::middleware('jwt')->group(function () {
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store'])->middleware('role:Customer');
     Route::get('/orders/{order}', [OrderController::class, 'show']);
+    Route::patch('/orders/{order}/cancel', [OrderController::class, 'cancelByCustomer'])->middleware('role:Customer');
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:Sales,Admin');
     Route::post('/orders/{order}/complaints', [ComplaintController::class, 'store'])->middleware('role:Customer');
     Route::get('/complaints', [ComplaintController::class, 'index'])->middleware('role:Sales,Admin');

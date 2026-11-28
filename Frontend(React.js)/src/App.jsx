@@ -988,6 +988,14 @@ function OrdersPage({ token, onToast, onLogin }) {
       onToast(error.message)
     } finally { setDetailLoading(false) }
   }
+  async function cancelOrder(order) {
+    if (!window.confirm(`Bạn muốn hủy đơn hàng #${order.ma_don_hang}?`)) return
+    try {
+      await request(`/orders/${order.ma_don_hang}/cancel`, { token, method: 'PATCH' })
+      setOrders((rows) => rows.map((row) => row.ma_don_hang === order.ma_don_hang ? { ...row, trang_thai: 'cancelled' } : row))
+      onToast(`Đã hủy đơn hàng #${order.ma_don_hang}. Tồn kho đã được hoàn lại.`)
+    } catch (error) { onToast(error.message) }
+  }
   useEffect(() => {
     if (!token) return
     request('/orders', { token }).then((data) => setOrders(data.data || [])).catch((error) => onToast(error.message)).finally(() => setLoading(false))
@@ -996,9 +1004,24 @@ function OrdersPage({ token, onToast, onLogin }) {
     {!token && <div className="empty-state"><span>📦</span><h3>Đăng nhập để xem đơn hàng</h3><p>Thông tin mua sắm của bạn được lưu an toàn trong tài khoản.</p><button className="primary-button" onClick={onLogin}>Đăng nhập</button></div>}
     {loading && <p className="form-note">Đang tải đơn hàng...</p>}
     {!loading && token && !orders.length && <div className="empty-state"><span>🧺</span><h3>Chưa có đơn hàng nào</h3><p>Khi đặt mua nông sản, hành trình đơn hàng sẽ xuất hiện tại đây.</p></div>}
-    {token && <div className="orders-list">{orders.map((order) => <article className="order-card" key={order.ma_don_hang}><div className="order-top"><b>Đơn #{order.ma_don_hang}</b><span className={`order-status status-${order.trang_thai}`}>{orderStatusLabel(order.trang_thai)}</span></div><p>{order.items?.map((item) => `${item.batch?.product?.ten_san_pham} · ${item.so_luong} ${unitOf(item.batch?.product)}`).join(' / ')}</p><div className="order-bottom"><span>{shortDate(order.ngay_tao)}</span><b>{money(order.tong_tien)}</b></div><div className="order-card-actions"><button className="order-details-button" onClick={() => openOrderDetails(order.ma_don_hang)}>Xem chi tiết đơn hàng</button></div></article>)}</div>}
+    {token && <div className="orders-list">{orders.map((order) => {
+      const complaint = order.complaints?.[0]
+      const complaintLabel = ({ pending: 'Đang chờ xử lý', approved: 'Đã chấp nhận', rejected: 'Đã từ chối', refunded: 'Đã hoàn tiền', replacement: 'Đã đổi sản phẩm' })[complaint?.trang_thai] || complaint?.trang_thai
+      return <article className="order-card" key={order.ma_don_hang}>
+        <div className="order-top"><b>Đơn #{order.ma_don_hang}</b><span className={`order-status status-${order.trang_thai}`}>{orderStatusLabel(order.trang_thai)}</span></div>
+        <p>{order.items?.map((item) => `${item.batch?.product?.ten_san_pham} · ${item.so_luong} ${unitOf(item.batch?.product)}`).join(' / ')}</p>
+        <div className="order-bottom"><span>{shortDate(order.ngay_tao)}</span><b>{money(order.tong_tien)}</b></div>
+        <div className="order-card-actions">
+          <button className="order-details-button" onClick={() => openOrderDetails(order.ma_don_hang)}>Xem chi tiết đơn hàng</button>
+          {order.trang_thai === 'delivered' && (complaint
+            ? <button className="complaint-link" onClick={() => openOrderDetails(order.ma_don_hang)}>Khiếu nại · {complaintLabel}</button>
+            : <button className="complaint-link" onClick={() => setComplaintOrder(order)}>Gửi khiếu nại</button>)}
+          {order.trang_thai === 'pending' && <button className="order-cancel-button" onClick={() => cancelOrder(order)}>Hủy đơn</button>}
+        </div>
+      </article>
+    })}</div>}
     {detailOrder && <OrderDetailsModal order={detailOrder} token={token} loading={detailLoading} onClose={() => setDetailOrder(null)} onComplaint={(order) => { setDetailOrder(null); setComplaintOrder(order) }} />}
-    {complaintOrder && <ComplaintModal order={complaintOrder} token={token} onClose={() => setComplaintOrder(null)} onToast={onToast} />}
+    {complaintOrder && <ComplaintModal order={complaintOrder} token={token} onClose={() => setComplaintOrder(null)} onSubmitted={(complaint) => setOrders((rows) => rows.map((row) => row.ma_don_hang === complaint.ma_don_hang ? { ...row, complaints: [complaint] } : row))} onToast={onToast} />}
   </section>
 }
 
@@ -1028,7 +1051,7 @@ function OrderDetailsModal({ order, token, loading, onClose, onComplaint }) {
   </Modal>
 }
 
-function ComplaintModal({ order, token, onClose, onToast }) {
+function ComplaintModal({ order, token, onClose, onSubmitted, onToast }) {
   const [busy, setBusy] = useState(false)
   const [evidenceError, setEvidenceError] = useState('')
   function validateEvidence(files) {
@@ -1048,7 +1071,8 @@ function ComplaintModal({ order, token, onClose, onToast }) {
     if (fileError) return
     setBusy(true)
     try {
-      await request(`/orders/${order.ma_don_hang}/complaints`, { token, method: 'POST', body: new FormData(event.currentTarget) })
+      const result = await request(`/orders/${order.ma_don_hang}/complaints`, { token, method: 'POST', body: new FormData(event.currentTarget) })
+      onSubmitted?.(result.complaint)
       onToast('Đã gửi khiếu nại kèm minh chứng cho bộ phận chăm sóc khách hàng.')
       onClose()
     } catch (error) { onToast(error.message) } finally { setBusy(false) }

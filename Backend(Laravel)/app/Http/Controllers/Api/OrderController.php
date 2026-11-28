@@ -20,7 +20,7 @@ class OrderController extends Controller
 {
     public function index(Request $request)
     {
-        $query = DonHang::with(['customer:ma_nguoi_dung,ho_ten,email', 'items.batch.product'])->orderByDesc('ngay_tao');
+        $query = DonHang::with(['customer:ma_nguoi_dung,ho_ten,email', 'items.batch.product', 'complaints'])->orderByDesc('ngay_tao');
         if (!in_array($request->user()->vai_tro, ['Sales', 'Admin'], true)) {
             $query->where('ma_nguoi_dung', $request->user()->getKey());
         }
@@ -104,6 +104,35 @@ class OrderController extends Controller
     {
         abort_unless(in_array($request->user()->vai_tro, ['Sales', 'Admin'], true) || (int) $order->ma_nguoi_dung === (int) $request->user()->getKey(), 403);
         return response()->json($order->load('customer:ma_nguoi_dung,ho_ten,email', 'items.batch.product', 'payments', 'complaints'));
+    }
+
+    public function cancelByCustomer(Request $request, DonHang $order)
+    {
+        abort_unless((int) $order->ma_nguoi_dung === (int) $request->user()->getKey(), 403);
+
+        DB::transaction(function () use ($order) {
+            $lockedOrder = DonHang::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+            if ($lockedOrder->trang_thai !== 'pending') {
+                abort(422, 'Chỉ có thể hủy đơn hàng đang chờ xác nhận.');
+            }
+
+            $payments = $lockedOrder->payments()->lockForUpdate()->get();
+            if ($payments->contains(fn ($payment) => $payment->trang_thai === 'paid')) {
+                abort(422, 'Đơn đã thanh toán nên không thể tự hủy. Vui lòng liên hệ cửa hàng để được hỗ trợ.');
+            }
+
+            foreach ($lockedOrder->items()->get() as $item) {
+                LoHang::whereKey($item->ma_lo_hang)->lockForUpdate()->increment('so_luong_ton', $item->so_luong);
+            }
+
+            foreach ($payments->where('trang_thai', 'pending') as $payment) {
+                $payment->update(['trang_thai' => 'failed']);
+            }
+
+            $lockedOrder->update(['trang_thai' => 'cancelled']);
+        }, 3);
+
+        return response()->json(['order' => $order->fresh()->load('items.batch.product', 'payments', 'complaints')]);
     }
 
     public function updateStatus(Request $request, DonHang $order)
