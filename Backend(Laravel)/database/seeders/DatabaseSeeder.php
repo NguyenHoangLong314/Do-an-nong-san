@@ -20,7 +20,6 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $demoBatches = [];
         $vegetables = DanhMuc::firstOrCreate(['ten_danh_muc' => 'Rau xanh'], ['mo_ta' => 'Rau trồng theo mùa']);
         $fruits = DanhMuc::firstOrCreate(['ten_danh_muc' => 'Trái cây'], ['mo_ta' => 'Trái cây thu hoạch tại vườn']);
         $products = [
@@ -39,7 +38,6 @@ class DatabaseSeeder extends Seeder
                 'ngay_het_han' => today()->addDays(6), 'so_luong_nhap' => $stock,
                 'so_luong_ton' => $stock, 'so_luong_hao_hut' => 0,
             ]);
-            $demoBatches[] = $batch;
             if ($name === 'Cà chua bi') {
                 $scenarios = [
                     ['TOMATO-SOON', 1, 5],
@@ -55,7 +53,6 @@ class DatabaseSeeder extends Seeder
                         'so_luong_nhap' => max(10, $stock), 'so_luong_ton' => $stock,
                         'so_luong_hao_hut' => 0,
                     ]);
-                    $demoBatches[] = $scenarioBatch;
                 }
             }
         }
@@ -74,8 +71,9 @@ class DatabaseSeeder extends Seeder
                 [0, 'Thu hoạch và phân loại', 'Thu hoạch nhẹ tay, loại bỏ sản phẩm dập hỏng và chuyển vào khu vực bảo quản sạch.', '06:20:00'],
             ];
 
-            foreach ($demoBatches as $demoBatch) {
-                if (!$demoBatch->ngay_thu_hoach) continue;
+            foreach (LoHang::with('logs')->get() as $demoBatch) {
+                // Populate existing manually created lots too, but never overwrite a real journal.
+                if (!$demoBatch->ngay_thu_hoach || $demoBatch->logs->isNotEmpty()) continue;
                 foreach ($activities as [$daysBeforeHarvest, $action, $note, $time]) {
                     $loggedAt = $demoBatch->ngay_thu_hoach->copy()->subDays($daysBeforeHarvest)->setTimeFromTimeString($time);
                     NhatKyCanhTac::firstOrCreate([
