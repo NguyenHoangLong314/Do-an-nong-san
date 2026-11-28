@@ -878,12 +878,34 @@ function StaffPage({ token, onToast, initialDialog = '', initialBatchId = '', on
   const [products, setProducts] = useState([])
   const [batchProductId, setBatchProductId] = useState('')
   const [batchQuery, setBatchQuery] = useState('')
+  const [batchFilter, setBatchFilter] = useState('all')
+  const [batchSort, setBatchSort] = useState('expiry')
   const [lossQuery, setLossQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const [todayLabel] = useState(() => new Date().toLocaleDateString('vi-VN', { weekday: 'short', day: 'numeric', month: 'short' }))
   const dialog = initialDialog
   const selected = batches.find((item) => String(item.ma_lo_hang) === String(initialBatchId)) || null
-  const visibleBatches = batches.filter((batch) => searchableText(batch.ma_lo_hang, batch.product?.ten_san_pham).includes(batchQuery.trim().toLocaleLowerCase('vi')))
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const batchExpiryDate = (batch) => {
+    const value = batch.ngay_het_han
+    return value ? new Date(`${String(value).slice(0, 10)}T00:00:00`) : null
+  }
+  const getBatchCondition = (batch) => {
+    const expiry = batchExpiryDate(batch)
+    if (Number(batch.so_luong_ton) <= 0) return 'empty'
+    if (expiry && expiry < today) return 'expired'
+    if (expiry && expiry <= new Date(today.getTime() + alertDays * 86400000)) return 'soon'
+    return 'available'
+  }
+  const visibleBatches = batches
+    .filter((batch) => searchableText(batch.ma_lo_hang, batch.product?.ten_san_pham).includes(batchQuery.trim().toLocaleLowerCase('vi')))
+    .filter((batch) => batchFilter === 'all' || getBatchCondition(batch) === batchFilter)
+    .sort((a, b) => {
+      const aDate = batchExpiryDate(a)?.getTime() ?? Number.MAX_SAFE_INTEGER
+      const bDate = batchExpiryDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER
+      return batchSort === 'expiry-desc' ? bDate - aDate : aDate - bDate
+    })
   const visibleLosses = losses.filter((loss) => searchableText(loss.ma_lo_hang, loss.batch?.product?.ten_san_pham, loss.staff?.ho_ten, loss.ly_do).includes(lossQuery.trim().toLocaleLowerCase('vi')))
   const refresh = useCallback(() => {
     request('/farm/batches', { token }).then((data) => setBatches(data.data || [])).catch((error) => onToast(error.message))
@@ -934,7 +956,8 @@ function StaffPage({ token, onToast, initialDialog = '', initialBatchId = '', on
     {alerts.length > 0 && <div className="alert-banner"><span>⚠</span><div><b>Có lô sắp đến hạn</b><small>{alerts.length} lô còn hạn trong {alertDays} ngày. Báo bộ phận bán hàng xử lý sớm.</small></div></div>}
     <div className="staff-section-title"><div><p className="eyebrow">TỒN KHO THEO LÔ</p><h2>Lô hàng trong vườn</h2></div><button className="add-button" onClick={() => openDialog('batch')}>+ Thêm lô</button></div>
     <label className="search-box list-search-box"><span>⌕</span><input value={batchQuery} onChange={(event) => setBatchQuery(event.target.value)} placeholder="Tìm theo tên sản phẩm hoặc mã lô..." /></label>
-    <div className="batch-list">{visibleBatches.map((batch) => <article className="staff-batch" key={batch.ma_lo_hang}><div className="staff-batch-top"><span className="batch-icon">✳</span><div><b>{batch.product?.ten_san_pham}</b><small>Lô #{batch.ma_lo_hang} · Thu hoạch {shortDate(batch.ngay_thu_hoach)}</small></div><span className="batch-stock">{batch.so_luong_ton} {unitOf(batch.product)}</span></div><div className="staff-batch-foot"><span>Hạn dùng <b>{shortDate(batch.ngay_het_han)}</b></span><div className="batch-actions"><button onClick={() => openDialog('edit-batch', batch)}>Sửa ngày</button><button onClick={() => openDialog('journal', batch)}>+ Nhật ký</button><button onClick={() => openDialog('loss', batch)}>Ghi hao hụt <span>↗</span></button></div></div></article>)}
+    <div className="batch-toolbar"><div className="batch-filter-row">{[['all', 'Tất cả'], ['soon', 'Sắp hết hạn'], ['expired', 'Đã hết hạn'], ['empty', 'Hết hàng']].map(([key, label]) => <button key={key} className={batchFilter === key ? 'selected' : ''} onClick={() => setBatchFilter(key)}>{label}{key !== 'all' && <b>{batches.filter((batch) => getBatchCondition(batch) === key).length}</b>}</button>)}</div><label className="batch-sort">Sắp xếp<select value={batchSort} onChange={(event) => setBatchSort(event.target.value)}><option value="expiry">Hạn gần nhất</option><option value="expiry-desc">Hạn xa nhất</option></select></label></div>
+    <div className="batch-list">{visibleBatches.map((batch) => { const condition = getBatchCondition(batch); const conditionLabels = { soon: 'Sắp hết hạn', expired: 'Đã hết hạn', empty: 'Hết hàng', available: 'Còn hàng' }; return <article className={`staff-batch batch-${condition}`} key={batch.ma_lo_hang}><div className="staff-batch-top"><span className="batch-icon">✳</span><div><b>{batch.product?.ten_san_pham}</b><small>Lô #{batch.ma_lo_hang} · Thu hoạch {shortDate(batch.ngay_thu_hoach)}</small></div><span className="batch-stock">{batch.so_luong_ton} {unitOf(batch.product)}</span></div><div className="staff-batch-foot"><span>Hạn dùng <b>{shortDate(batch.ngay_het_han)}</b></span><div className="batch-actions"><span className={`batch-condition condition-${condition}`}>{conditionLabels[condition]}</span><button onClick={() => openDialog('edit-batch', batch)}>Sửa ngày</button><button onClick={() => openDialog('journal', batch)}>+ Nhật ký</button><button onClick={() => openDialog('loss', batch)} disabled={Number(batch.so_luong_ton) <= 0}>Ghi hao hụt <span>↗</span></button></div></div></article> })}
       {!visibleBatches.length && <div className="empty-state"><span>🌱</span><h3>{batches.length ? 'Không tìm thấy lô phù hợp' : 'Chưa có lô hàng'}</h3><p>{batches.length ? 'Thử từ khóa hoặc mã lô khác.' : 'Khi có lô hàng trong hệ thống, bạn có thể ghi nhận hao hụt tại đây.'}</p></div>}
     </div>
     <div className="staff-section-title loss-history-heading"><div><p className="eyebrow">PHIẾU ĐÃ GHI NHẬN</p><h2>Lịch sử hao hụt</h2></div><span>{losses.length} phiếu gần đây</span></div>
