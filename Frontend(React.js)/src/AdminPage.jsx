@@ -35,6 +35,7 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
   const [categoryForm, setCategoryForm] = useState(null)
   const [productForm, setProductForm] = useState(null)
   const [employeeForm, setEmployeeForm] = useState(false)
+  const [editingEmployee, setEditingEmployee] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const loadOverview = useCallback(async () => { setOverview(await request('/admin/overview', { token })) }, [token])
@@ -155,6 +156,29 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
     } catch (error) { onToast(error.message) }
   }
 
+  async function updateEmployee(event) {
+    event.preventDefault()
+    const body = Object.fromEntries(new FormData(event.currentTarget).entries())
+    if (!body.mat_khau) delete body.mat_khau
+    try {
+      await request(`/admin/users/${editingEmployee.ma_nguoi_dung}`, { token, method: 'PUT', body })
+      setEditingEmployee(null)
+      await loadUsers()
+      await refreshOverview()
+      onToast('Đã cập nhật thông tin nhân viên.')
+    } catch (error) { onToast(error.message) }
+  }
+
+  async function deleteEmployee(employee) {
+    if (!window.confirm(`Xóa tài khoản nhân viên “${employee.ho_ten}”? Thao tác này không xóa được nếu tài khoản đã có lịch sử hoạt động.`)) return
+    try {
+      await request(`/admin/users/${employee.ma_nguoi_dung}`, { token, method: 'DELETE' })
+      await loadUsers()
+      await refreshOverview()
+      onToast('Đã xóa tài khoản nhân viên.')
+    } catch (error) { onToast(error.message) }
+  }
+
   async function changeOrderStatus(order, status) {
     try {
       await request(`/orders/${order.ma_don_hang}/status`, { token, method: 'PATCH', body: { trang_thai: status } })
@@ -235,7 +259,7 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
     </>}
 
     {tab === 'people' && <>
-      <AdminSection title="Tài khoản & phân quyền" action={<button className="primary-button admin-add" onClick={() => setEmployeeForm((open) => !open)}>{employeeForm ? 'Đóng biểu mẫu' : '+ Thêm nhân viên'}</button>} />
+      <AdminSection title="Tài khoản & phân quyền" action={<button className="primary-button admin-add" onClick={() => { setEditingEmployee(null); setEmployeeForm((open) => !open) }}>{employeeForm ? 'Đóng biểu mẫu' : '+ Thêm nhân viên'}</button>} />
       {employeeForm && <form className="admin-editor" onSubmit={createEmployee}>
         <div className="admin-editor-heading"><b>Tạo tài khoản nhân viên</b><span>Nhân viên sẽ đăng nhập bằng email và mật khẩu này.</span></div>
         <label>Họ và tên<input name="ho_ten" required maxLength="100" placeholder="Tên nhân viên" /></label>
@@ -244,9 +268,17 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
         <label>Mật khẩu ban đầu<input name="mat_khau" type="password" required minLength="8" autoComplete="new-password" placeholder="Ít nhất 8 ký tự" /></label>
         <button className="primary-button wide">Tạo tài khoản</button>
       </form>}
+      {editingEmployee && <form key={editingEmployee.ma_nguoi_dung} className="admin-editor" onSubmit={updateEmployee}>
+        <div className="admin-editor-heading"><b>Sửa thông tin nhân viên</b><button type="button" onClick={() => setEditingEmployee(null)}>Đóng</button></div>
+        <label>Họ và tên<input name="ho_ten" required maxLength="100" defaultValue={editingEmployee.ho_ten} /></label>
+        <label>Email đăng nhập<input name="email" type="email" required maxLength="150" defaultValue={editingEmployee.email} /></label>
+        <label>Bộ phận<select name="vai_tro" defaultValue={editingEmployee.vai_tro}><option value="Staff">Nhân viên nông trại (Staff)</option><option value="Sales">Nhân viên bán hàng (Sales)</option></select></label>
+        <label>Mật khẩu mới (để trống nếu không đổi)<input name="mat_khau" type="password" minLength="8" maxLength="255" autoComplete="new-password" placeholder="Nhập mật khẩu mới nếu cần" /></label>
+        <button className="primary-button wide">Lưu thay đổi</button>
+      </form>}
       <label className="admin-search"><span>⌕</span><input value={query} onChange={(event) => { setLoading(true); setQuery(event.target.value) }} placeholder="Tìm theo tên hoặc email" /></label>
       <div className="admin-role-filter">{['', ...roles].map((role) => <button key={role || 'all'} className={roleFilter === role ? 'selected' : ''} onClick={() => { setLoading(true); setRoleFilter(role) }}>{role || 'Tất cả'}</button>)}</div>
-      <div className="admin-card-list">{users.map((item) => <article className="admin-user-card" key={item.ma_nguoi_dung}><div className="admin-user-avatar">{item.ho_ten?.slice(0, 1)}</div><div className="admin-user-info"><b>{item.ho_ten}</b><small>{item.email}</small><small>Tham gia {date(item.ngay_tao)}</small><label>Vai trò<select value={item.vai_tro} onChange={(event) => changeRole(item, event.target.value)}><option value="Customer">Khách hàng</option><option value="Staff">Nhân viên nông trại</option><option value="Sales">Bán hàng</option><option value="Admin">Quản trị viên</option></select></label></div></article>)}{!users.length && <EmptyAdmin text="Không tìm thấy tài khoản phù hợp." />}</div>
+      <div className="admin-card-list">{users.map((item) => { const isEmployee = ['Staff', 'Sales'].includes(item.vai_tro); return <article className="admin-user-card" key={item.ma_nguoi_dung}><div className="admin-user-avatar">{item.ho_ten?.slice(0, 1)}</div><div className="admin-user-info"><b>{item.ho_ten}</b><small>{item.email}</small><small>Tham gia {date(item.ngay_tao)}</small><label>Vai trò<select value={item.vai_tro} onChange={(event) => changeRole(item, event.target.value)}><option value="Customer">Khách hàng</option><option value="Staff">Nhân viên nông trại</option><option value="Sales">Bán hàng</option><option value="Admin">Quản trị viên</option></select></label>{isEmployee && <div className="admin-actions"><button onClick={() => { setEmployeeForm(false); setEditingEmployee(item) }}>Sửa thông tin</button><button className="text-danger" onClick={() => deleteEmployee(item)}>Xóa nhân viên</button></div>}</div></article> })}{!users.length && <EmptyAdmin text="Không tìm thấy tài khoản phù hợp." />}</div>
       <p className="admin-footnote">Tài khoản Admin không thể tự hạ quyền; hệ thống luôn giữ lại ít nhất một Admin.</p>
     </>}
 

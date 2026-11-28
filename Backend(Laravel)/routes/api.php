@@ -65,6 +65,8 @@ Route::middleware('jwt')->group(function () {
         Route::delete('/products/{product}', [AdminController::class, 'destroyProduct']);
         Route::get('/users', [AdminController::class, 'users']);
         Route::post('/users', [AdminController::class, 'storeEmployee']);
+        Route::put('/users/{user}', [AdminController::class, 'updateEmployee']);
+        Route::delete('/users/{user}', [AdminController::class, 'destroyEmployee']);
         Route::patch('/users/{user}/role', [AdminController::class, 'updateUserRole']);
         Route::get('/reports', [AdminController::class, 'reports']);
         Route::get('/settings', [AdminController::class, 'settings']);

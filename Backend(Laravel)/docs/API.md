@@ -85,7 +85,7 @@ Khi JWT hết hạn, API trả `401`; giao diện xóa phiên đăng nhập, đ�
 | GET/PATCH | `/complaints`, `/complaints/{complaint}` | Sales/Admin | Xem và xử lý khiếu nại |
 | GET/POST/PUT/DELETE | `/admin/categories...` | Admin | CRUD danh mục |
 | GET/POST/PUT/DELETE | `/admin/products...` | Admin | CRUD sản phẩm; không xóa sản phẩm đã có lô |
-| GET/POST/PATCH | `/admin/users...` | Admin | Xem, tạo nhân viên, đổi vai trò |
+| GET/POST/PUT/DELETE/PATCH | `/admin/users...` | Admin | Xem, thêm, sửa, xóa nhân viên; đổi vai trò |
 | GET | `/admin/overview`, `/admin/reports`, `/admin/settings` | Admin | Tổng quan, báo cáo, cấu hình |
 
 ## Lỗi API

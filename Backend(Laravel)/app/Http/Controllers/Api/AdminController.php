@@ -198,6 +198,49 @@ class AdminController extends Controller
         ]], 201);
     }
 
+    public function updateEmployee(Request $request, User $user)
+    {
+        abort_unless(in_array($user->vai_tro, ['Staff', 'Sales'], true), 422, 'Chỉ chỉnh sửa tài khoản nhân viên Staff hoặc Sales tại mục này.');
+
+        $data = $request->validate([
+            'ho_ten' => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'max:150', Rule::unique('NguoiDung', 'email')->ignore($user->getKey(), 'ma_nguoi_dung')],
+            'vai_tro' => ['required', Rule::in(['Staff', 'Sales'])],
+            'mat_khau' => ['nullable', 'string', 'min:8', 'max:255'],
+        ]);
+
+        $user->update([
+            'ho_ten' => $data['ho_ten'],
+            'email' => $data['email'],
+            'vai_tro' => $data['vai_tro'],
+            ...(!empty($data['mat_khau']) ? ['mat_khau' => Hash::make($data['mat_khau'])] : []),
+        ]);
+
+        return response()->json(['user' => [
+            'ma_nguoi_dung' => $user->ma_nguoi_dung,
+            'ho_ten' => $user->ho_ten,
+            'email' => $user->email,
+            'vai_tro' => $user->vai_tro,
+        ]]);
+    }
+
+    public function destroyEmployee(User $user)
+    {
+        abort_unless(in_array($user->vai_tro, ['Staff', 'Sales'], true), 422, 'Chỉ xóa tài khoản nhân viên Staff hoặc Sales tại mục này.');
+
+        if ($user->orders()->exists()
+            || $user->cultivationLogs()->exists()
+            || $user->lossReports()->exists()
+            || $user->subscriptions()->exists()
+            || DB::table('KhieuNai')->where('ma_nguoi_dung', $user->getKey())->exists()) {
+            return response()->json(['message' => 'Nhân viên đã có dữ liệu đơn hàng, nhật ký, hao hụt, gói định kỳ hoặc khiếu nại nên không thể xóa để bảo toàn lịch sử.'], 409);
+        }
+
+        $user->delete();
+
+        return response()->json(['message' => 'Đã xóa tài khoản nhân viên.']);
+    }
+
     public function updateUserRole(Request $request, User $user)
     {
         $data = $request->validate(['vai_tro' => ['required', Rule::in(['Customer', 'Staff', 'Sales', 'Admin'])]]);
