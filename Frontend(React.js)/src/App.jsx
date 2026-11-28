@@ -627,7 +627,6 @@ function ProductPage({ product: initial, onBack, onAdd, adding, onSubscribe, onT
   const batch = Array.isArray(product.batches) ? product.batches[0] : null
   const unit = unitOf(product)
   const step = quantityStep(product)
-  const timeline = Array.isArray(batch?.logs) ? batch.logs : []
   const add = async () => { if (await onAdd(product, quantity)) onBack() }
   const downloadQr = async () => {
     if (!batch) return
@@ -676,11 +675,8 @@ function ProductPage({ product: initial, onBack, onAdd, adding, onSubscribe, onT
           {batch && <div className="quantity-row"><span>Số lượng</span><div><button onClick={() => setQuantity(Math.max(step, quantity - step))}>−</button><b>{quantity} {unit}</b><button onClick={() => setQuantity(quantity + step)}>+</button></div></div>}
           <div className="detail-actions"><button className="primary-button" disabled={!batch || adding} onClick={add}>{adding ? 'Đang kiểm tra tồn kho…' : !batch ? 'Hết hàng' : `Thêm vào giỏ · ${money(product.gia_co_ban * quantity)}`}</button><button className="outline-button" onClick={onSubscribe}>Đặt gói định kỳ</button></div>
           <p className="small-assurance">✓ Số lô và hạn dùng hiển thị trước khi đặt hàng</p>
+          {batch && <div className="product-trace-entry"><p className="eyebrow">TRUY XUẤT NGUỒN GỐC</p><div className="product-qr"><img src={`${API}/farm/batches/${batch.ma_lo_hang}/qr`} alt={`QR truy xuất lô ${batch.ma_lo_hang}`} /><div className="product-qr-info"><span>Mã truy xuất <b>{String(batch.ma_qr || batch.ma_lo_hang || '').slice(0, 8).toUpperCase()}</b></span><button type="button" onClick={downloadQr}>Tải QR PNG</button><button type="button" onClick={() => onTrace(batch.ma_qr)}>Mở trang truy xuất ↗</button></div></div></div>}
         </div>
-      </div>
-      <div className="trace-section"><div className="trace-title"><div><p className="eyebrow">TỪ ĐẤT ĐẾN BÀN ĂN</p><h2>Nhật ký canh tác</h2></div>{batch && <div className="product-qr"><img src={`${API}/farm/batches/${batch.ma_lo_hang}/qr`} alt={`QR truy xuất lô ${batch.ma_lo_hang}`} /><div className="product-qr-info"><span>Mã truy xuất <b>{String(batch.ma_qr || batch.ma_lo_hang || '').slice(0, 8).toUpperCase()}</b></span><button type="button" onClick={downloadQr}>Tải QR PNG</button></div></div>}</div>
-        {timeline.length ? <div className="timeline">{timeline.map((item) => <article className="timeline-item" key={item.ma_nhat_ky}><span className="timeline-dot">✳</span><div className="timeline-card"><div><b>{item.hanh_dong}</b><time>{shortDate(item.thoi_gian)}</time></div><p>{item.ghi_chu}</p>{item.hinh_anh_minh_chung?.length > 0 && <div className="journal-media">{item.hinh_anh_minh_chung.map((file) => <EvidenceMedia key={file} path={file} alt="Minh chứng nhật ký canh tác" />)}</div>}</div></article>)}</div> : <div className="timeline-empty"><span>🌿</span><p>Nhật ký canh tác của lô sẽ được cập nhật tại đây.</p></div>}
-        {batch && <button className="trace-link" onClick={() => onTrace(batch.ma_qr)}>Mở trang truy xuất nguồn gốc <span>↗</span></button>}
       </div>
     </section>
   )
