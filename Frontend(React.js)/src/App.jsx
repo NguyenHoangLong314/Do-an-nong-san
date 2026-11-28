@@ -1013,10 +1013,14 @@ function OrdersPage({ token, onToast, onLogin }) {
         <div className="order-bottom"><span>{shortDate(order.ngay_tao)}</span><b>{money(order.tong_tien)}</b></div>
         <div className="order-card-actions">
           <button className="order-details-button" onClick={() => openOrderDetails(order.ma_don_hang)}>Xem chi tiết đơn hàng</button>
-          {order.trang_thai === 'delivered' && (complaint
+          {complaint
             ? <button className="complaint-link" onClick={() => openOrderDetails(order.ma_don_hang)}>Khiếu nại · {complaintLabel}</button>
-            : <button className="complaint-link" onClick={() => setComplaintOrder(order)}>Gửi khiếu nại</button>)}
-          {order.trang_thai === 'pending' && <button className="order-cancel-button" onClick={() => cancelOrder(order)}>Hủy đơn</button>}
+            : order.trang_thai === 'delivered'
+              ? <button className="complaint-link" onClick={() => setComplaintOrder(order)}>Gửi khiếu nại</button>
+              : ['pending', 'confirmed', 'preparing', 'shipped'].includes(order.trang_thai) && <button className="complaint-link complaint-link-disabled" disabled title="Có thể gửi khiếu nại sau khi đơn hàng được giao">Khiếu nại sau khi nhận hàng</button>}
+          {['pending', 'confirmed'].includes(order.trang_thai) && (order.payments?.some((payment) => payment.trang_thai === 'paid')
+            ? <button className="order-cancel-button order-cancel-disabled" disabled title="Đơn đã thanh toán, vui lòng liên hệ Admin nếu cần hủy">Đã thanh toán · liên hệ Admin</button>
+            : <button className="order-cancel-button" onClick={() => cancelOrder(order)}>Hủy đơn</button>)}
         </div>
       </article>
     })}</div>}

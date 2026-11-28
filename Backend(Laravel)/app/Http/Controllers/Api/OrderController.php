@@ -20,7 +20,7 @@ class OrderController extends Controller
 {
     public function index(Request $request)
     {
-        $query = DonHang::with(['customer:ma_nguoi_dung,ho_ten,email', 'items.batch.product', 'complaints'])->orderByDesc('ngay_tao');
+        $query = DonHang::with(['customer:ma_nguoi_dung,ho_ten,email', 'items.batch.product', 'complaints', 'payments'])->orderByDesc('ngay_tao');
         if (!in_array($request->user()->vai_tro, ['Sales', 'Admin'], true)) {
             $query->where('ma_nguoi_dung', $request->user()->getKey());
         }
@@ -112,8 +112,8 @@ class OrderController extends Controller
 
         DB::transaction(function () use ($order) {
             $lockedOrder = DonHang::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
-            if ($lockedOrder->trang_thai !== 'pending') {
-                abort(422, 'Chỉ có thể hủy đơn hàng đang chờ xác nhận.');
+            if (!in_array($lockedOrder->trang_thai, ['pending', 'confirmed'], true)) {
+                abort(422, 'Chỉ có thể hủy đơn hàng đang chờ xác nhận hoặc đã xác nhận nhưng chưa bắt đầu chuẩn bị.');
             }
 
             $payments = $lockedOrder->payments()->lockForUpdate()->get();
