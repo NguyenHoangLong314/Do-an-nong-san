@@ -4,6 +4,7 @@ import EvidenceGallery from './EvidenceGallery'
 
 const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0))
 const date = (value) => value ? new Date(value).toLocaleDateString('vi-VN') : '—'
+const searchableText = (...values) => values.filter(Boolean).join(' ').toLocaleLowerCase('vi')
 const unitForCategory = (category) => category?.ten_danh_muc?.toLocaleLowerCase('vi').includes('phân bón') ? 'bao' : 'kg'
 const unitOf = (product) => product?.category ? unitForCategory(product.category) : product?.don_vi_tinh || 'kg'
 const lossEvidenceUrl = (path) => `${API}/farm/loss-evidence/${String(path || '').split('/').map(encodeURIComponent).join('/')}`
@@ -34,12 +35,23 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
   const [report, setReport] = useState(null)
   const [settings, setSettings] = useState(null)
   const [query, setQuery] = useState('')
+  const [productQuery, setProductQuery] = useState('')
+  const [orderQuery, setOrderQuery] = useState('')
+  const [complaintQuery, setComplaintQuery] = useState('')
+  const [categoryQuery, setCategoryQuery] = useState('')
+  const [lossQuery, setLossQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [categoryForm, setCategoryForm] = useState(null)
   const [productForm, setProductForm] = useState(null)
   const [employeeForm, setEmployeeForm] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const visibleProducts = products.filter((product) => searchableText(product.ma_san_pham, product.ten_san_pham, product.category?.ten_danh_muc).includes(productQuery.trim().toLocaleLowerCase('vi')))
+  const visibleCategories = categories.filter((item) => searchableText(item.ten_danh_muc, item.mo_ta).includes(categoryQuery.trim().toLocaleLowerCase('vi')))
+  const visibleOrders = orders.filter((order) => searchableText(order.ma_don_hang, order.customer?.ho_ten, order.customer?.email, order.trang_thai, ...(order.items || []).map((item) => item.batch?.product?.ten_san_pham)).includes(orderQuery.trim().toLocaleLowerCase('vi')))
+  const visibleComplaints = (complaints.data || []).filter((complaint) => searchableText(complaint.ma_khieu_nai, complaint.ma_don_hang, complaint.customer?.ho_ten, complaint.customer?.email, complaint.trang_thai, complaint.ly_do, ...(complaint.order?.items || []).map((item) => item.batch?.product?.ten_san_pham)).includes(complaintQuery.trim().toLocaleLowerCase('vi')))
+  const visibleLosses = losses.filter((loss) => searchableText(loss.ma_lo_hang, loss.batch?.product?.ten_san_pham, loss.staff?.ho_ten, loss.ly_do).includes(lossQuery.trim().toLocaleLowerCase('vi')))
 
   const loadOverview = useCallback(async () => { setOverview(await request('/admin/overview', { token })) }, [token])
   const loadCategories = useCallback(async () => { setCategories(await request('/admin/categories', { token })) }, [token])
@@ -51,7 +63,7 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
     const result = await request(`/admin/users?${params}`, { token })
     setUsers(result.data || [])
   }, [query, roleFilter, token])
-  const loadOrders = useCallback(async () => { const result = await request('/orders', { token }); setOrders(result.data || []) }, [token])
+  const loadOrders = useCallback(async () => { const result = await request(`/orders${orderQuery.trim() ? `?q=${encodeURIComponent(orderQuery.trim())}` : ''}`, { token }); setOrders(result.data || []) }, [token, orderQuery])
 
   useEffect(() => {
     let active = true
@@ -259,18 +271,21 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
         <label>Mô tả<textarea name="mo_ta" rows="3" defaultValue={productForm.mo_ta || ''} placeholder="Mô tả ngắn về sản phẩm" /></label>
         <button className="primary-button wide">Lưu sản phẩm</button>
       </form>}
-      <div className="admin-card-list">{products.map((product) => <article className="admin-product-card" key={product.ma_san_pham}><div className="admin-product-icon">{product.hinh_anh ? <img src={product.hinh_anh} alt="" /> : '🥬'}</div><div className="admin-product-info"><div className="admin-row-title"><b>{product.ten_san_pham}</b><span className={`admin-status ${product.trang_thai === 'active' ? 'good' : ''}`}>{product.trang_thai === 'active' ? 'Đang bán' : 'Ngừng bán'}</span></div><p>{product.category?.ten_danh_muc || 'Chưa phân loại'} · {product.ton_kho ?? 0} {unitOf(product)} trong kho</p><strong>{money(product.gia_co_ban)} / {unitOf(product)}</strong><div className="admin-actions"><button onClick={() => setProductForm(product)}>Sửa thông tin</button><button onClick={() => toggleProduct(product)}>{product.trang_thai === 'active' ? 'Ngừng bán' : 'Mở bán'}</button><button className="text-danger" onClick={() => deleteProduct(product)}>Xóa</button></div></div></article>)}{!products.length && <EmptyAdmin text="Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên." />}</div>
+      <label className="admin-search"><span>⌕</span><input value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Tìm theo tên sản phẩm hoặc danh mục" /></label>
+      <div className="admin-card-list">{visibleProducts.map((product) => <article className="admin-product-card" key={product.ma_san_pham}><div className="admin-product-icon">{product.hinh_anh ? <img src={product.hinh_anh} alt="" /> : '🥬'}</div><div className="admin-product-info"><div className="admin-row-title"><b>{product.ten_san_pham}</b><span className={`admin-status ${product.trang_thai === 'active' ? 'good' : ''}`}>{product.trang_thai === 'active' ? 'Đang bán' : 'Ngừng bán'}</span></div><p>{product.category?.ten_danh_muc || 'Chưa phân loại'} · {product.ton_kho ?? 0} {unitOf(product)} trong kho</p><strong>{money(product.gia_co_ban)} / {unitOf(product)}</strong><div className="admin-actions"><button onClick={() => setProductForm(product)}>Sửa thông tin</button><button onClick={() => toggleProduct(product)}>{product.trang_thai === 'active' ? 'Ngừng bán' : 'Mở bán'}</button><button className="text-danger" onClick={() => deleteProduct(product)}>Xóa</button></div></div></article>)}{!visibleProducts.length && <EmptyAdmin text={products.length ? 'Không tìm thấy sản phẩm phù hợp.' : 'Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên.'} />}</div>
     </>}
 
     {tab === 'orders' && <>
       <AdminSection title="Theo dõi & xử lý đơn hàng" />
-      <div className="admin-card-list">{orders.map((order) => <article className="admin-order-card" key={order.ma_don_hang}><div className="admin-row-title"><b>Đơn hàng #{order.ma_don_hang}</b><span className={`order-status status-${order.trang_thai}`}>{adminOrderStatusLabel(order.trang_thai)}</span></div><p>{order.customer?.ho_ten || `Tài khoản #${order.ma_nguoi_dung}`} · {date(order.ngay_tao)}</p><p>{order.items?.map((item) => `${item.batch?.product?.ten_san_pham || 'Nông sản'} · ${item.so_luong} ${unitOf(item.batch?.product)}`).join(' / ')}</p><div className="admin-order-bottom"><b>{money(order.tong_tien)}</b><div><button onClick={() => openOrderDetails(order.ma_don_hang)}>Xem chi tiết</button>{(orderTransitions[order.trang_thai] || []).map(([status, label]) => <button key={status} className={status === 'cancelled' ? 'text-danger' : ''} onClick={() => changeOrderStatus(order, status)}>{label}</button>)}{!orderTransitions[order.trang_thai] && (order.trang_thai === 'cancelled' ? <span className="admin-order-cancelled">Đã hủy</span> : <small>Đơn đã hoàn tất</small>)}</div></div></article>)}{!orders.length && <EmptyAdmin text="Chưa có đơn hàng nào trong hệ thống." />}</div>
+      <label className="admin-search"><span>⌕</span><input value={orderQuery} onChange={(event) => { setLoading(true); setOrderQuery(event.target.value) }} placeholder="Tìm mã đơn, khách hàng, sản phẩm hoặc trạng thái" /></label>
+      <div className="admin-card-list">{visibleOrders.map((order) => <article className="admin-order-card" key={order.ma_don_hang}><div className="admin-row-title"><b>Đơn hàng #{order.ma_don_hang}</b><span className={`order-status status-${order.trang_thai}`}>{adminOrderStatusLabel(order.trang_thai)}</span></div><p>{order.customer?.ho_ten || `Tài khoản #${order.ma_nguoi_dung}`} · {date(order.ngay_tao)}</p><p>{order.items?.map((item) => `${item.batch?.product?.ten_san_pham || 'Nông sản'} · ${item.so_luong} ${unitOf(item.batch?.product)}`).join(' / ')}</p><div className="admin-order-bottom"><b>{money(order.tong_tien)}</b><div><button onClick={() => openOrderDetails(order.ma_don_hang)}>Xem chi tiết</button>{(orderTransitions[order.trang_thai] || []).map(([status, label]) => <button key={status} className={status === 'cancelled' ? 'text-danger' : ''} onClick={() => changeOrderStatus(order, status)}>{label}</button>)}{!orderTransitions[order.trang_thai] && (order.trang_thai === 'cancelled' ? <span className="admin-order-cancelled">Đã hủy</span> : <small>Đơn đã hoàn tất</small>)}</div></div></article>)}{!visibleOrders.length && <EmptyAdmin text={orders.length ? 'Không tìm thấy đơn hàng phù hợp.' : 'Chưa có đơn hàng nào trong hệ thống.'} />}</div>
     </>}
 
     {tab === 'complaints' && <>
       <AdminSection title="Khiếu nại khách hàng" action={<button className="admin-refresh" onClick={async () => { setLoading(true); try { setComplaints(await request(`/complaints?page=${complaintsPage}`, { token })) } catch (error) { onToast(error.message) } finally { setLoading(false) } }}>↻ Làm mới</button>} />
       <p className="admin-losses-note">Xem lý do và ảnh minh chứng, sau đó ghi nhận kết quả xử lý cho từng đơn hàng.</p>
-      <div className="admin-card-list complaint-list">{(complaints.data || []).map((complaint) => {
+      <label className="admin-search"><span>⌕</span><input value={complaintQuery} onChange={(event) => setComplaintQuery(event.target.value)} placeholder="Tìm theo mã khiếu nại, đơn, khách hoặc lý do" /></label>
+      <div className="admin-card-list complaint-list">{visibleComplaints.map((complaint) => {
         const labels = { pending: 'Chờ xử lý', approved: 'Đã chấp nhận', rejected: 'Từ chối', refunded: 'Đã hoàn tiền', replacement: 'Đổi sản phẩm' }
         const productNames = complaint.order?.items?.map((item) => item.batch?.product?.ten_san_pham).filter(Boolean).join(', ')
         return <article className="complaint-card" key={complaint.ma_khieu_nai}>
@@ -285,14 +300,15 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
             <button className="primary-button">Lưu kết quả</button>
           </form>
         </article>
-      })}{!loading && !(complaints.data || []).length && <EmptyAdmin text="Chưa có khiếu nại nào từ khách hàng." />}</div>
+      })}{!loading && !visibleComplaints.length && <EmptyAdmin text={(complaints.data || []).length ? 'Không tìm thấy khiếu nại phù hợp.' : 'Chưa có khiếu nại nào từ khách hàng.'} />}</div>
       {complaints.last_page > 1 && <div className="complaint-pagination"><button disabled={complaints.current_page <= 1} onClick={() => { setLoading(true); setComplaintsPage((page) => page - 1) }}>← Trang trước</button><span>Trang {complaints.current_page} / {complaints.last_page}</span><button disabled={complaints.current_page >= complaints.last_page} onClick={() => { setLoading(true); setComplaintsPage((page) => page + 1) }}>Trang sau →</button></div>}
     </>}
 
     {tab === 'categories' && <>
       <AdminSection title="Quản lý danh mục" action={<button className="primary-button admin-add" onClick={() => setCategoryForm({})}>+ Thêm danh mục</button>} />
       {categoryForm && <form key={categoryForm.ma_danh_muc || 'new-category'} className="admin-editor" onSubmit={saveCategory}><div className="admin-editor-heading"><b>{categoryForm.ma_danh_muc ? 'Chỉnh sửa danh mục' : 'Danh mục mới'}</b><button type="button" onClick={() => setCategoryForm(null)}>Đóng</button></div><label>Tên danh mục<input name="ten_danh_muc" required maxLength="100" defaultValue={categoryForm.ten_danh_muc || ''} placeholder="Ví dụ: Rau xanh" /></label><label>Mô tả<textarea name="mo_ta" rows="3" defaultValue={categoryForm.mo_ta || ''} placeholder="Mô tả nhóm sản phẩm" /></label><button className="primary-button wide">Lưu danh mục</button></form>}
-      <div className="admin-card-list">{categories.map((item) => <article className="admin-category-card" key={item.ma_danh_muc}><div className="admin-category-icon">✳</div><div className="admin-product-info"><b>{item.ten_danh_muc}</b><p>{item.mo_ta || 'Chưa có mô tả'} · {item.products_count} sản phẩm</p><div className="admin-actions"><button onClick={() => setCategoryForm(item)}>Sửa</button><button className="text-danger" onClick={() => deleteCategory(item)}>Xóa danh mục</button></div></div></article>)}{!categories.length && <EmptyAdmin text="Chưa có danh mục sản phẩm." />}</div>
+      <label className="admin-search"><span>⌕</span><input value={categoryQuery} onChange={(event) => setCategoryQuery(event.target.value)} placeholder="Tìm theo tên hoặc mô tả danh mục" /></label>
+      <div className="admin-card-list">{visibleCategories.map((item) => <article className="admin-category-card" key={item.ma_danh_muc}><div className="admin-category-icon">✳</div><div className="admin-product-info"><b>{item.ten_danh_muc}</b><p>{item.mo_ta || 'Chưa có mô tả'} · {item.products_count} sản phẩm</p><div className="admin-actions"><button onClick={() => setCategoryForm(item)}>Sửa</button><button className="text-danger" onClick={() => deleteCategory(item)}>Xóa danh mục</button></div></div></article>)}{!visibleCategories.length && <EmptyAdmin text={categories.length ? 'Không tìm thấy danh mục phù hợp.' : 'Chưa có danh mục sản phẩm.'} />}</div>
     </>}
 
     {tab === 'people' && <>
@@ -330,11 +346,12 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
     {tab === 'losses' && <>
       <AdminSection title="Lịch sử hao hụt theo lô" />
       <p className="admin-losses-note">Xem số lượng, lý do, người ghi nhận và ảnh minh chứng của từng phiếu hao hụt.</p>
-      <div className="loss-history-list">{losses.map((loss) => <article className="loss-history-card" key={loss.ma_phieu_hao_hut}>
+      <label className="admin-search"><span>⌕</span><input value={lossQuery} onChange={(event) => setLossQuery(event.target.value)} placeholder="Tìm theo mã lô, sản phẩm, nhân viên hoặc lý do" /></label>
+      <div className="loss-history-list">{visibleLosses.map((loss) => <article className="loss-history-card" key={loss.ma_phieu_hao_hut}>
         <div className="loss-history-top"><span className="loss-history-icon">↘</span><div><b>{loss.batch?.product?.ten_san_pham || 'Sản phẩm'} · Lô #{loss.ma_lo_hang}</b><small>{loss.staff?.ho_ten || 'Nhân viên'} · {loss.ngay_ghi_nhan ? new Date(loss.ngay_ghi_nhan).toLocaleString('vi-VN') : '—'}</small></div><strong>{loss.so_luong} {unitOf(loss.batch?.product)}</strong></div>
         <p><b>Lý do:</b> {loss.ly_do}</p>
         {loss.hinh_anh_minh_chung?.length > 0 && <div className="loss-evidence">{loss.hinh_anh_minh_chung.map((path) => { const url = /^https?:\/\//i.test(path) ? path : lossEvidenceUrl(path); return <a key={path} href={url} target="_blank" rel="noreferrer"><img src={url} alt="Ảnh minh chứng hao hụt" loading="lazy" /></a> })}</div>}
-      </article>)}{!loading && !losses.length && <EmptyAdmin text="Chưa có phiếu hao hụt nào được ghi nhận." />}</div>
+      </article>)}{!loading && !visibleLosses.length && <EmptyAdmin text={losses.length ? 'Không tìm thấy phiếu hao hụt phù hợp.' : 'Chưa có phiếu hao hụt nào được ghi nhận.'} />}</div>
     </>}
 
     {tab === 'settings' && <>

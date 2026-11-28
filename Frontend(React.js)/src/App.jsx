@@ -7,6 +7,7 @@ import './App.css'
 const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0))
 const shortDate = (value) => value ? new Date(value).toLocaleDateString('vi-VN') : 'Đang cập nhật'
 const isFertilizer = (product) => product?.category?.ten_danh_muc?.toLocaleLowerCase('vi').includes('phân bón') || product?.don_vi_tinh === 'bao'
+const searchableText = (...values) => values.filter(Boolean).join(' ').toLocaleLowerCase('vi')
 const unitOf = (product) => product?.don_vi_tinh || (isFertilizer(product) ? 'bao' : 'kg')
 const quantityStep = (product) => unitOf(product) === 'bao' ? 1 : 0.5
 const unitPriceLabel = (product) => `/${unitOf(product)}`
@@ -876,10 +877,14 @@ function StaffPage({ token, onToast, initialDialog = '', initialBatchId = '', on
   const [alertDays, setAlertDays] = useState(2)
   const [products, setProducts] = useState([])
   const [batchProductId, setBatchProductId] = useState('')
+  const [batchQuery, setBatchQuery] = useState('')
+  const [lossQuery, setLossQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const [todayLabel] = useState(() => new Date().toLocaleDateString('vi-VN', { weekday: 'short', day: 'numeric', month: 'short' }))
   const dialog = initialDialog
   const selected = batches.find((item) => String(item.ma_lo_hang) === String(initialBatchId)) || null
+  const visibleBatches = batches.filter((batch) => searchableText(batch.ma_lo_hang, batch.product?.ten_san_pham).includes(batchQuery.trim().toLocaleLowerCase('vi')))
+  const visibleLosses = losses.filter((loss) => searchableText(loss.ma_lo_hang, loss.batch?.product?.ten_san_pham, loss.staff?.ho_ten, loss.ly_do).includes(lossQuery.trim().toLocaleLowerCase('vi')))
   const refresh = useCallback(() => {
     request('/farm/batches', { token }).then((data) => setBatches(data.data || [])).catch((error) => onToast(error.message))
     request('/farm/losses', { token }).then((data) => setLosses(data.data || [])).catch((error) => onToast(error.message))
@@ -928,12 +933,14 @@ function StaffPage({ token, onToast, initialDialog = '', initialBatchId = '', on
     <div className="staff-stats"><div><span>Đang quản lý</span><b>{batches.length}</b><small>lô hàng</small></div><div className={alerts.length ? 'warning-stat' : ''}><span>Cần xử lý</span><b>{alerts.length}</b><small>lô sắp hết hạn</small></div></div>
     {alerts.length > 0 && <div className="alert-banner"><span>⚠</span><div><b>Có lô sắp đến hạn</b><small>{alerts.length} lô còn hạn trong {alertDays} ngày. Báo bộ phận bán hàng xử lý sớm.</small></div></div>}
     <div className="staff-section-title"><div><p className="eyebrow">TỒN KHO THEO LÔ</p><h2>Lô hàng trong vườn</h2></div><button className="add-button" onClick={() => openDialog('batch')}>+ Thêm lô</button></div>
-    <div className="batch-list">{batches.map((batch) => <article className="staff-batch" key={batch.ma_lo_hang}><div className="staff-batch-top"><span className="batch-icon">✳</span><div><b>{batch.product?.ten_san_pham}</b><small>Lô #{batch.ma_lo_hang} · Thu hoạch {shortDate(batch.ngay_thu_hoach)}</small></div><span className="batch-stock">{batch.so_luong_ton} {unitOf(batch.product)}</span></div><div className="staff-batch-foot"><span>Hạn dùng <b>{shortDate(batch.ngay_het_han)}</b></span><div className="batch-actions"><button onClick={() => openDialog('edit-batch', batch)}>Sửa ngày</button><button onClick={() => openDialog('journal', batch)}>+ Nhật ký</button><button onClick={() => openDialog('loss', batch)}>Ghi hao hụt <span>↗</span></button></div></div></article>)}
-      {!batches.length && <div className="empty-state"><span>🌱</span><h3>Chưa có lô hàng</h3><p>Khi có lô hàng trong hệ thống, bạn có thể ghi nhận hao hụt tại đây.</p></div>}
+    <label className="search-box list-search-box"><span>⌕</span><input value={batchQuery} onChange={(event) => setBatchQuery(event.target.value)} placeholder="Tìm theo tên sản phẩm hoặc mã lô..." /></label>
+    <div className="batch-list">{visibleBatches.map((batch) => <article className="staff-batch" key={batch.ma_lo_hang}><div className="staff-batch-top"><span className="batch-icon">✳</span><div><b>{batch.product?.ten_san_pham}</b><small>Lô #{batch.ma_lo_hang} · Thu hoạch {shortDate(batch.ngay_thu_hoach)}</small></div><span className="batch-stock">{batch.so_luong_ton} {unitOf(batch.product)}</span></div><div className="staff-batch-foot"><span>Hạn dùng <b>{shortDate(batch.ngay_het_han)}</b></span><div className="batch-actions"><button onClick={() => openDialog('edit-batch', batch)}>Sửa ngày</button><button onClick={() => openDialog('journal', batch)}>+ Nhật ký</button><button onClick={() => openDialog('loss', batch)}>Ghi hao hụt <span>↗</span></button></div></div></article>)}
+      {!visibleBatches.length && <div className="empty-state"><span>🌱</span><h3>{batches.length ? 'Không tìm thấy lô phù hợp' : 'Chưa có lô hàng'}</h3><p>{batches.length ? 'Thử từ khóa hoặc mã lô khác.' : 'Khi có lô hàng trong hệ thống, bạn có thể ghi nhận hao hụt tại đây.'}</p></div>}
     </div>
     <div className="staff-section-title loss-history-heading"><div><p className="eyebrow">PHIẾU ĐÃ GHI NHẬN</p><h2>Lịch sử hao hụt</h2></div><span>{losses.length} phiếu gần đây</span></div>
-    <div className="loss-history-list">{losses.map((loss) => <article className="loss-history-card" key={loss.ma_phieu_hao_hut}><div className="loss-history-top"><span className="loss-history-icon">↘</span><div><b>{loss.batch?.product?.ten_san_pham || 'Sản phẩm'} · Lô #{loss.ma_lo_hang}</b><small>{loss.staff?.ho_ten || 'Nhân viên'} · {new Date(loss.ngay_ghi_nhan).toLocaleString('vi-VN')}</small></div><strong>{loss.so_luong} {unitOf(loss.batch?.product)}</strong></div><p><b>Lý do:</b> {loss.ly_do}</p>{loss.hinh_anh_minh_chung?.length > 0 && <div className="loss-evidence">{loss.hinh_anh_minh_chung.map((path) => { const url = lossEvidenceUrl(path); return <a key={path} href={url} target="_blank" rel="noreferrer"><img src={url} alt="Ảnh minh chứng hao hụt" loading="lazy" /></a> })}</div>}</article>)}
-      {!losses.length && <div className="admin-empty"><span>🌱</span><p>Chưa có phiếu hao hụt nào được ghi nhận.</p></div>}
+    <label className="search-box list-search-box"><span>⌕</span><input value={lossQuery} onChange={(event) => setLossQuery(event.target.value)} placeholder="Tìm theo sản phẩm, mã lô, lý do..." /></label>
+    <div className="loss-history-list">{visibleLosses.map((loss) => <article className="loss-history-card" key={loss.ma_phieu_hao_hut}><div className="loss-history-top"><span className="loss-history-icon">↘</span><div><b>{loss.batch?.product?.ten_san_pham || 'Sản phẩm'} · Lô #{loss.ma_lo_hang}</b><small>{loss.staff?.ho_ten || 'Nhân viên'} · {new Date(loss.ngay_ghi_nhan).toLocaleString('vi-VN')}</small></div><strong>{loss.so_luong} {unitOf(loss.batch?.product)}</strong></div><p><b>Lý do:</b> {loss.ly_do}</p>{loss.hinh_anh_minh_chung?.length > 0 && <div className="loss-evidence">{loss.hinh_anh_minh_chung.map((path) => { const url = lossEvidenceUrl(path); return <a key={path} href={url} target="_blank" rel="noreferrer"><img src={url} alt="Ảnh minh chứng hao hụt" loading="lazy" /></a> })}</div>}</article>)}
+      {!visibleLosses.length && <div className="admin-empty"><span>🌱</span><p>{losses.length ? 'Không tìm thấy phiếu phù hợp.' : 'Chưa có phiếu hao hụt nào được ghi nhận.'}</p></div>}
     </div>
     {dialog === 'loss' && selected && <Modal title={`Ghi hao hụt · Lô #${selected.ma_lo_hang}`} onClose={() => closeDialog()}>
       <form className="stack-form" onSubmit={reportLoss}>
@@ -973,10 +980,12 @@ function StaffPage({ token, onToast, initialDialog = '', initialBatchId = '', on
 
 function OrdersPage({ token, onToast, onLogin }) {
   const [orders, setOrders] = useState([])
+  const [orderQuery, setOrderQuery] = useState('')
   const [loading, setLoading] = useState(Boolean(token))
   const [complaintOrder, setComplaintOrder] = useState(null)
   const [detailOrder, setDetailOrder] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const visibleOrders = orders.filter((order) => searchableText(order.ma_don_hang, orderStatusLabel(order.trang_thai), ...(order.items || []).map((item) => item.batch?.product?.ten_san_pham)).includes(orderQuery.trim().toLocaleLowerCase('vi')))
   async function openOrderDetails(orderId) {
     setDetailOrder({ ma_don_hang: orderId })
     setDetailLoading(true)
@@ -1004,7 +1013,8 @@ function OrdersPage({ token, onToast, onLogin }) {
     {!token && <div className="empty-state"><span>📦</span><h3>Đăng nhập để xem đơn hàng</h3><p>Thông tin mua sắm của bạn được lưu an toàn trong tài khoản.</p><button className="primary-button" onClick={onLogin}>Đăng nhập</button></div>}
     {loading && <p className="form-note">Đang tải đơn hàng...</p>}
     {!loading && token && !orders.length && <div className="empty-state"><span>🧺</span><h3>Chưa có đơn hàng nào</h3><p>Khi đặt mua nông sản, hành trình đơn hàng sẽ xuất hiện tại đây.</p></div>}
-    {token && <div className="orders-list">{orders.map((order) => {
+    {token && orders.length > 0 && <label className="search-box list-search-box"><span>⌕</span><input value={orderQuery} onChange={(event) => setOrderQuery(event.target.value)} placeholder="Tìm theo mã đơn, sản phẩm hoặc trạng thái..." /></label>}
+    {token && <div className="orders-list">{visibleOrders.map((order) => {
       const complaint = order.complaints?.[0]
       const complaintLabel = ({ pending: 'Đang chờ xử lý', approved: 'Đã chấp nhận', rejected: 'Đã từ chối', refunded: 'Đã hoàn tiền', replacement: 'Đã đổi sản phẩm' })[complaint?.trang_thai] || complaint?.trang_thai
       return <article className="order-card" key={order.ma_don_hang}>
@@ -1021,7 +1031,7 @@ function OrdersPage({ token, onToast, onLogin }) {
             : <button className="order-cancel-button" onClick={() => cancelOrder(order)}>Hủy đơn</button>)}
         </div>
       </article>
-    })}</div>}
+    })}{!visibleOrders.length && orders.length > 0 && <div className="empty-state"><span>⌕</span><h3>Không tìm thấy đơn hàng</h3><p>Thử nhập mã đơn, tên sản phẩm hoặc trạng thái khác.</p></div>}</div>}
     {detailOrder && <OrderDetailsModal order={detailOrder} token={token} loading={detailLoading} onClose={() => setDetailOrder(null)} onComplaint={(order) => { setDetailOrder(null); setComplaintOrder(order) }} />}
     {complaintOrder && <ComplaintModal order={complaintOrder} token={token} onClose={() => setComplaintOrder(null)} onSubmitted={(complaint) => setOrders((rows) => rows.map((row) => row.ma_don_hang === complaint.ma_don_hang ? { ...row, complaints: [complaint] } : row))} onToast={onToast} />}
   </section>

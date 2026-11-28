@@ -55,3 +55,4 @@
 .order-card-actions .complaint-link{margin-top:0;min-height:34px;padding:0 10px;border:1px solid #dce8d8;border-radius:6px;background:#eef5eb;color:#416644;font-size:9px;font-weight:700}
 .order-card-actions .order-cancel-button{min-height:34px;padding:0 10px;border:1px solid #efd9d5;border-radius:6px;background:#fff7f6;color:#a65045;font-size:9px;font-weight:700}
 .order-card-actions .order-cancel-disabled{border-color:#e7ebe4;background:#f7f8f5;color:#98a095;cursor:not-allowed}
+.list-search-box{max-width:none;margin:10px 0 12px;height:40px}.admin-search{width:100%;max-width:none;margin:10px 0 12px}.admin-search input{width:100%;border:0;outline:0;background:transparent;color:#405143;font:inherit;font-size:10px}.admin-search input::placeholder{color:#9ba49a}

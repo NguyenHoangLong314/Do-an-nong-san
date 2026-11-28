@@ -24,6 +24,16 @@ class OrderController extends Controller
         if (!in_array($request->user()->vai_tro, ['Sales', 'Admin'], true)) {
             $query->where('ma_nguoi_dung', $request->user()->getKey());
         }
+        if ($request->filled('q')) {
+            $term = trim((string) $request->query('q'));
+            $query->where(function ($filter) use ($term) {
+                if (ctype_digit($term)) $filter->where('ma_don_hang', (int) $term);
+                else $filter->where('trang_thai', 'like', "%{$term}%");
+                $filter->orWhere('trang_thai', 'like', "%{$term}%")
+                    ->orWhereHas('customer', fn ($customer) => $customer->where('ho_ten', 'like', "%{$term}%")->orWhere('email', 'like', "%{$term}%"))
+                    ->orWhereHas('items.batch.product', fn ($product) => $product->where('ten_san_pham', 'like', "%{$term}%"));
+            });
+        }
         return response()->json($query->paginate(12));
     }
 
