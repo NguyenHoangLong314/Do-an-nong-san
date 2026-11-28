@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { API, request } from './api'
 import AdminPage from './AdminPage'
+import EvidenceGallery from './EvidenceGallery'
 import './App.css'
 
 const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0))
@@ -996,7 +997,7 @@ function OrdersPage({ token, onToast, onLogin }) {
     {loading && <p className="form-note">Đang tải đơn hàng...</p>}
     {!loading && token && !orders.length && <div className="empty-state"><span>🧺</span><h3>Chưa có đơn hàng nào</h3><p>Khi đặt mua nông sản, hành trình đơn hàng sẽ xuất hiện tại đây.</p></div>}
     {token && <div className="orders-list">{orders.map((order) => <article className="order-card" key={order.ma_don_hang}><div className="order-top"><b>Đơn #{order.ma_don_hang}</b><span className={`order-status status-${order.trang_thai}`}>{orderStatusLabel(order.trang_thai)}</span></div><p>{order.items?.map((item) => `${item.batch?.product?.ten_san_pham} · ${item.so_luong} ${unitOf(item.batch?.product)}`).join(' / ')}</p><div className="order-bottom"><span>{shortDate(order.ngay_tao)}</span><b>{money(order.tong_tien)}</b></div><div className="order-card-actions"><button className="order-details-button" onClick={() => openOrderDetails(order.ma_don_hang)}>Xem chi tiết đơn hàng</button></div></article>)}</div>}
-    {detailOrder && <OrderDetailsModal order={detailOrder} loading={detailLoading} onClose={() => setDetailOrder(null)} onComplaint={(order) => { setDetailOrder(null); setComplaintOrder(order) }} />}
+    {detailOrder && <OrderDetailsModal order={detailOrder} token={token} loading={detailLoading} onClose={() => setDetailOrder(null)} onComplaint={(order) => { setDetailOrder(null); setComplaintOrder(order) }} />}
     {complaintOrder && <ComplaintModal order={complaintOrder} token={token} onClose={() => setComplaintOrder(null)} onToast={onToast} />}
   </section>
 }
@@ -1005,8 +1006,9 @@ function orderStatusLabel(status) {
   return ({ pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận', preparing: 'Đang chuẩn bị', shipped: 'Đang giao', delivered: 'Đã giao', cancelled: 'Đã hủy' })[status] || status || 'Đang cập nhật'
 }
 
-function OrderDetailsModal({ order, loading, onClose, onComplaint }) {
+function OrderDetailsModal({ order, token, loading, onClose, onComplaint }) {
   const items = order.items || []
+  const complaint = order.complaints?.[0]
   const subtotal = items.reduce((sum, item) => sum + Number(item.so_luong || 0) * Number(item.don_gia || 0), 0)
   const paymentLabels = { cod: 'Thanh toán khi nhận hàng', bank_transfer: 'Chuyển khoản', vnpay: 'VNPay', momo: 'MoMo' }
   return <Modal title={`Chi tiết đơn hàng #${order.ma_don_hang}`} onClose={onClose}>
@@ -1021,7 +1023,7 @@ function OrderDetailsModal({ order, loading, onClose, onComplaint }) {
       <div className="order-detail-totals"><p><span>Tiền hàng</span><b>{money(subtotal)}</b></p><p><span>Phí vận chuyển</span><b>{money(order.phi_giao_hang)}</b></p><p className="order-grand-total"><span>Tổng thanh toán</span><b>{money(order.tong_tien)}</b></p></div>
       <h3>Giao hàng & thanh toán</h3>
       <div className="order-detail-info"><p><span>Địa chỉ nhận</span><b>{order.dia_chi_giao_hang || 'Chưa có thông tin'}</b></p><p><span>Phương thức</span><b>{paymentLabels[order.phuong_thuc_thanh_toan] || order.phuong_thuc_thanh_toan || 'Chưa có thông tin'}</b></p><p><span>Thanh toán</span><b>{order.payments?.[0]?.trang_thai || 'Chờ xác nhận'}</b></p>{order.ngay_giao_thuc_te && <p><span>Ngày giao</span><b>{new Date(order.ngay_giao_thuc_te).toLocaleString('vi-VN')}</b></p>}</div>
-      {order.trang_thai === 'delivered' && <div className="order-complaint-action"><p className="fine-print">Sản phẩm có vấn đề? Gửi yêu cầu kèm ảnh minh chứng trong vòng 24 giờ sau khi nhận hàng.</p><button className="outline-button" onClick={() => onComplaint(order)}>Gửi yêu cầu khiếu nại</button></div>}
+      {complaint ? <div className="order-complaint-action"><h3>Yêu cầu khiếu nại</h3><p><b>Trạng thái:</b> {({ pending: 'Đang chờ xử lý', approved: 'Đã chấp nhận', rejected: 'Đã từ chối', refunded: 'Đã hoàn tiền', replacement: 'Đã đổi sản phẩm' })[complaint.trang_thai] || complaint.trang_thai}</p><p><b>Lý do:</b> {complaint.ly_do}</p>{complaint.ket_qua_xu_ly && <p><b>Kết quả:</b> {complaint.ket_qua_xu_ly}</p>}<EvidenceGallery token={token} complaint={complaint} /></div> : order.trang_thai === 'delivered' && <div className="order-complaint-action"><p className="fine-print">Sản phẩm có vấn đề? Gửi yêu cầu kèm ảnh minh chứng trong vòng 24 giờ sau khi nhận hàng.</p><button className="outline-button" onClick={() => onComplaint(order)}>Gửi yêu cầu khiếu nại</button></div>}
     </div>}
   </Modal>
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { API, request } from './api'
+import EvidenceGallery from './EvidenceGallery'
 
 const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0))
 const date = (value) => value ? new Date(value).toLocaleDateString('vi-VN') : '—'
@@ -15,7 +16,7 @@ const orderTransitions = {
 }
 const tabs = [
   ['overview', 'Tổng quan', '▦'], ['orders', 'Đơn hàng', '▣'], ['products', 'Sản phẩm', '✳'], ['categories', 'Danh mục', '▤'],
-  ['people', 'Nhân sự & quyền', '♙'], ['reports', 'Báo cáo', '▥'], ['losses', 'Hao hụt', '↘'], ['settings', 'Cảnh báo', '⚙'],
+  ['people', 'Nhân sự & quyền', '♙'], ['complaints', 'Khiếu nại', '⚑'], ['reports', 'Báo cáo', '▥'], ['losses', 'Hao hụt', '↘'], ['settings', 'Cảnh báo', '⚙'],
 ]
 
 export default function AdminPage({ token, onToast, initialTab = 'overview', onTabChange }) {
@@ -26,6 +27,8 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
   const [users, setUsers] = useState([])
   const [orders, setOrders] = useState([])
   const [losses, setLosses] = useState([])
+  const [complaints, setComplaints] = useState({ data: [], current_page: 1, last_page: 1 })
+  const [complaintsPage, setComplaintsPage] = useState(1)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [orderDetailLoading, setOrderDetailLoading] = useState(false)
   const [report, setReport] = useState(null)
@@ -58,13 +61,14 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
       products: async () => { const [productRows, categoryRows] = await Promise.all([request('/admin/products', { token }), request('/admin/categories', { token })]); if (active) { setProducts(productRows); setCategories(categoryRows) } },
       categories: loadCategories,
       people: loadUsers,
+      complaints: async () => setComplaints(await request(`/complaints?page=${complaintsPage}`, { token })),
       reports: async () => setReport(await request('/admin/reports', { token })),
       losses: async () => { const result = await request('/farm/losses', { token }); setLosses(result.data || []) },
       settings: async () => setSettings(await request('/admin/settings', { token })),
     }
     Promise.resolve(tasks[tab]()).catch((error) => { if (active) onToast(error.message) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [tab, token, query, roleFilter, loadOverview, loadCategories, loadUsers, loadOrders, onToast])
+  }, [tab, token, query, roleFilter, complaintsPage, loadOverview, loadCategories, loadUsers, loadOrders, onToast])
 
   const refreshOverview = useCallback(async () => {
     try { await loadOverview() } catch (error) { onToast(error.message) }
@@ -179,6 +183,17 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
     } catch (error) { onToast(error.message) }
   }
 
+  async function resolveComplaint(event, complaint) {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const body = Object.fromEntries(form.entries())
+    try {
+      await request(`/complaints/${complaint.ma_khieu_nai}`, { token, method: 'PATCH', body })
+      setComplaints(await request(`/complaints?page=${complaintsPage}`, { token }))
+      onToast(`Đã cập nhật kết quả khiếu nại đơn #${complaint.ma_don_hang}.`)
+    } catch (error) { onToast(error.message) }
+  }
+
   async function changeOrderStatus(order, status) {
     try {
       await request(`/orders/${order.ma_don_hang}/status`, { token, method: 'PATCH', body: { trang_thai: status } })
@@ -250,6 +265,28 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
     {tab === 'orders' && <>
       <AdminSection title="Theo dõi & xử lý đơn hàng" />
       <div className="admin-card-list">{orders.map((order) => <article className="admin-order-card" key={order.ma_don_hang}><div className="admin-row-title"><b>Đơn hàng #{order.ma_don_hang}</b><span className={`order-status status-${order.trang_thai}`}>{adminOrderStatusLabel(order.trang_thai)}</span></div><p>{order.customer?.ho_ten || `Tài khoản #${order.ma_nguoi_dung}`} · {date(order.ngay_tao)}</p><p>{order.items?.map((item) => `${item.batch?.product?.ten_san_pham || 'Nông sản'} · ${item.so_luong} ${unitOf(item.batch?.product)}`).join(' / ')}</p><div className="admin-order-bottom"><b>{money(order.tong_tien)}</b><div><button onClick={() => openOrderDetails(order.ma_don_hang)}>Xem chi tiết</button>{(orderTransitions[order.trang_thai] || []).map(([status, label]) => <button key={status} className={status === 'cancelled' ? 'text-danger' : ''} onClick={() => changeOrderStatus(order, status)}>{label}</button>)}{!orderTransitions[order.trang_thai] && (order.trang_thai === 'cancelled' ? <span className="admin-order-cancelled">Đã hủy</span> : <small>Đơn đã hoàn tất</small>)}</div></div></article>)}{!orders.length && <EmptyAdmin text="Chưa có đơn hàng nào trong hệ thống." />}</div>
+    </>}
+
+    {tab === 'complaints' && <>
+      <AdminSection title="Khiếu nại khách hàng" action={<button className="admin-refresh" onClick={async () => { setLoading(true); try { setComplaints(await request(`/complaints?page=${complaintsPage}`, { token })) } catch (error) { onToast(error.message) } finally { setLoading(false) } }}>↻ Làm mới</button>} />
+      <p className="admin-losses-note">Xem lý do và ảnh minh chứng, sau đó ghi nhận kết quả xử lý cho từng đơn hàng.</p>
+      <div className="admin-card-list complaint-list">{(complaints.data || []).map((complaint) => {
+        const labels = { pending: 'Chờ xử lý', approved: 'Đã chấp nhận', rejected: 'Từ chối', refunded: 'Đã hoàn tiền', replacement: 'Đổi sản phẩm' }
+        const productNames = complaint.order?.items?.map((item) => item.batch?.product?.ten_san_pham).filter(Boolean).join(', ')
+        return <article className="complaint-card" key={complaint.ma_khieu_nai}>
+          <div className="admin-row-title"><b>Khiếu nại #{complaint.ma_khieu_nai} · Đơn #{complaint.ma_don_hang}</b><span className={`admin-status complaint-status status-${complaint.trang_thai}`}>{labels[complaint.trang_thai] || complaint.trang_thai}</span></div>
+          <p className="complaint-meta">{complaint.customer?.ho_ten || 'Khách hàng'} · {complaint.customer?.email || ''} · {complaint.ngay_tao ? new Date(complaint.ngay_tao).toLocaleString('vi-VN') : '—'}</p>
+          {productNames && <p className="complaint-meta">Sản phẩm: {productNames}</p>}
+          <p className="complaint-reason"><b>Lý do:</b> {complaint.ly_do}</p>
+          <EvidenceGallery token={token} complaint={complaint} />
+          <form className="complaint-resolution" onSubmit={(event) => resolveComplaint(event, complaint)}>
+            <label>Kết quả xử lý<select name="trang_thai" required defaultValue={['approved', 'rejected', 'refunded', 'replacement'].includes(complaint.trang_thai) ? complaint.trang_thai : ''}><option value="" disabled>Chọn kết quả</option><option value="approved">Chấp nhận khiếu nại</option><option value="rejected">Từ chối</option><option value="refunded">Hoàn tiền</option><option value="replacement">Đổi sản phẩm</option></select></label>
+            <label>Ghi chú xử lý<textarea name="ket_qua_xu_ly" rows="3" required maxLength="3000" defaultValue={complaint.ket_qua_xu_ly || ''} placeholder="Nêu kết quả xử lý để khách hàng theo dõi" /></label>
+            <button className="primary-button">Lưu kết quả</button>
+          </form>
+        </article>
+      })}{!loading && !(complaints.data || []).length && <EmptyAdmin text="Chưa có khiếu nại nào từ khách hàng." />}</div>
+      {complaints.last_page > 1 && <div className="complaint-pagination"><button disabled={complaints.current_page <= 1} onClick={() => { setLoading(true); setComplaintsPage((page) => page - 1) }}>← Trang trước</button><span>Trang {complaints.current_page} / {complaints.last_page}</span><button disabled={complaints.current_page >= complaints.last_page} onClick={() => { setLoading(true); setComplaintsPage((page) => page + 1) }}>Trang sau →</button></div>}
     </>}
 
     {tab === 'categories' && <>

@@ -82,7 +82,9 @@ Khi JWT hết hạn, API trả `401`; giao diện xóa phiên đăng nhập, đ�
 | GET | `/payments/vnpay/return` | VNPay/browser | Xác minh kết quả trả về rồi chuyển lại frontend |
 | GET | `/payments/vnpay/ipn` | VNPay server | Xác minh chữ ký IPN và cập nhật thanh toán |
 | POST/GET | `/subscriptions` | Customer | Tạo/xem đăng ký gói |
-| GET/PATCH | `/complaints`, `/complaints/{complaint}` | Sales/Admin | Xem và xử lý khiếu nại |
+| POST | `/orders/{order}/complaints` | Customer | Gửi khiếu nại trong 24 giờ sau giao hàng, kèm ảnh JPG/PNG |
+| GET/PATCH | `/complaints`, `/complaints/{complaint}` | Sales/Admin | Xem khiếu nại và lưu kết quả xử lý |
+| GET | `/complaints/{complaint}/evidence/{index}` | Chủ khiếu nại/Sales/Admin | Xem ảnh minh chứng có xác thực |
 | GET/POST/PUT/DELETE | `/admin/categories...` | Admin | CRUD danh mục |
 | GET/POST/PUT/DELETE | `/admin/products...` | Admin | CRUD sản phẩm; không xóa sản phẩm đã có lô |
 | GET/POST/PUT/DELETE/PATCH | `/admin/users...` | Admin | Xem, thêm, sửa, xóa nhân viên; đổi vai trò |

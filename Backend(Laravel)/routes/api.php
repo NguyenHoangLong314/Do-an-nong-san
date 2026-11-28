@@ -42,6 +42,7 @@ Route::middleware('jwt')->group(function () {
     Route::post('/orders/{order}/complaints', [ComplaintController::class, 'store'])->middleware('role:Customer');
     Route::get('/complaints', [ComplaintController::class, 'index'])->middleware('role:Sales,Admin');
     Route::patch('/complaints/{complaint}', [ComplaintController::class, 'resolve'])->middleware('role:Sales,Admin');
+    Route::get('/complaints/{complaint}/evidence/{index}', [ComplaintController::class, 'evidence']);
     Route::post('/subscriptions', [SubscriptionController::class, 'store'])->middleware('role:Customer');
     Route::get('/subscriptions', [SubscriptionController::class, 'index'])->middleware('role:Customer');
     Route::get('/farm/batches', [FarmController::class, 'index'])->middleware('role:Staff,Admin,Sales');
