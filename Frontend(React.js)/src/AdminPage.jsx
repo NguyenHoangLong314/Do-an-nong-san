@@ -347,7 +347,7 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
 }
 
 function adminOrderStatusLabel(status) {
-  return ({ pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận', preparing: 'Đang chuẩn bị', shipped: 'Đang giao', delivered: 'Đã giao', cancelled: 'Đã hủy' })[status] || status || 'Đang cập nhật'
+  return ({ pending: 'Chờ xác nhận', confirmed: 'Đã hoàn thành đơn hàng', preparing: 'Đang chuẩn bị', shipped: 'Đang giao', delivered: 'Đã giao', cancelled: 'Đã hủy' })[status] || status || 'Đang cập nhật'
 }
 
 function AdminOrderDetails({ order, loading, onClose }) {
