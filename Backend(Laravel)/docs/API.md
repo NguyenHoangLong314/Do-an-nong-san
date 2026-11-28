@@ -81,7 +81,7 @@ Khi JWT hết hạn, API trả `401`; giao diện xóa phiên đăng nhập, đ�
 | POST | `/shipping/quote` | Customer | Demo: tính khoảng cách từ `origin` (latitude, longitude) đến địa chỉ trong `destination`, phí theo km; body cũng gồm `items` |
 | GET | `/payments/vnpay/return` | VNPay/browser | Xác minh kết quả trả về rồi chuyển lại frontend |
 | GET | `/payments/vnpay/ipn` | VNPay server | Xác minh chữ ký IPN và cập nhật thanh toán |
-| PATCH | `/orders/{order}/cancel` | Chủ đơn Customer | Hủy đơn đang chờ/đã xác nhận nhưng chưa chuẩn bị và chưa thanh toán; hoàn tồn kho |
+| PATCH | `/orders/{order}/cancel` | Chủ đơn Customer | Hủy đơn đang chờ xác nhận và hoàn tồn kho |
 | POST/GET | `/subscriptions` | Customer | Tạo/xem đăng ký gói |
 | POST | `/orders/{order}/complaints` | Customer | Gửi khiếu nại trong 24 giờ sau giao hàng, kèm ảnh JPG/PNG |
 | GET/PATCH | `/complaints`, `/complaints/{complaint}` | Sales/Admin | Xem khiếu nại và lưu kết quả xử lý |

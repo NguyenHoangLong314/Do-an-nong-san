@@ -1018,8 +1018,8 @@ function OrdersPage({ token, onToast, onLogin }) {
             : order.trang_thai === 'delivered'
               ? <button className="complaint-link" onClick={() => setComplaintOrder(order)}>Gửi khiếu nại</button>
               : ['pending', 'confirmed', 'preparing', 'shipped'].includes(order.trang_thai) && <button className="complaint-link complaint-link-disabled" disabled title="Có thể gửi khiếu nại sau khi đơn hàng được giao">Khiếu nại sau khi nhận hàng</button>}
-          {['pending', 'confirmed'].includes(order.trang_thai) && (order.payments?.some((payment) => payment.trang_thai === 'paid')
-            ? <button className="order-cancel-button order-cancel-disabled" disabled title="Đơn đã thanh toán, vui lòng liên hệ Admin nếu cần hủy">Đã thanh toán · liên hệ Admin</button>
+          {order.trang_thai === 'pending' && (order.payments?.some((payment) => payment.trang_thai === 'paid')
+            ? <button className="order-cancel-button order-cancel-disabled" disabled title="Đơn đã thanh toán, vui lòng liên hệ Admin">Đã thanh toán · liên hệ Admin</button>
             : <button className="order-cancel-button" onClick={() => cancelOrder(order)}>Hủy đơn</button>)}
         </div>
       </article>

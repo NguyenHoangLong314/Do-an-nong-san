@@ -112,8 +112,8 @@ class OrderController extends Controller
 
         DB::transaction(function () use ($order) {
             $lockedOrder = DonHang::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
-            if (!in_array($lockedOrder->trang_thai, ['pending', 'confirmed'], true)) {
-                abort(422, 'Chỉ có thể hủy đơn hàng đang chờ xác nhận hoặc đã xác nhận nhưng chưa bắt đầu chuẩn bị.');
+            if ($lockedOrder->trang_thai !== 'pending') {
+                abort(422, 'Chỉ có thể hủy đơn hàng đang chờ xác nhận.');
             }
 
             $payments = $lockedOrder->payments()->lockForUpdate()->get();
