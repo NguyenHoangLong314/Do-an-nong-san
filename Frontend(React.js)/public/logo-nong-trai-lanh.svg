@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Logo Nông trại lành">
+  <circle cx="16" cy="16" r="15" fill="#e4eddc"/>
+  <g fill="none" stroke="#416647" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 27V14"/>
+    <path d="M16 19C8.7 19 5 15.1 5 8c7.4 0 11 3.6 11 11Z"/>
+    <path d="M16 15c0-6.6 3.5-10 10-10 0 6.7-3.4 10-10 10Z"/>
+    <path d="m9 12 7 7m7-9-7 7"/>
+  </g>
+</svg>
