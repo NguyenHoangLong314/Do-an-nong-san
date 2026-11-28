@@ -1028,7 +1028,7 @@ function OrdersPage({ token, onToast, onLogin }) {
 }
 
 function orderStatusLabel(status) {
-  return ({ pending: 'Chờ xác nhận', confirmed: 'Đã hoàn thành đơn hàng', preparing: 'Đang chuẩn bị', shipped: 'Đang giao', delivered: 'Đã giao', cancelled: 'Đã hủy' })[status] || status || 'Đang cập nhật'
+  return ({ pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận', preparing: 'Đang chuẩn bị', shipped: 'Đang giao', delivered: 'Đã hoàn thành đơn hàng', cancelled: 'Đã hủy' })[status] || status || 'Đang cập nhật'
 }
 
 function OrderDetailsModal({ order, token, loading, onClose, onComplaint }) {
