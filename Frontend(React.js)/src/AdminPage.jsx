@@ -9,6 +9,10 @@ const unitForCategory = (category) => category?.ten_danh_muc?.toLocaleLowerCase(
 const unitOf = (product) => product?.category ? unitForCategory(product.category) : product?.don_vi_tinh || 'kg'
 const lossEvidenceUrl = (path) => `${API}/farm/loss-evidence/${String(path || '').split('/').map(encodeURIComponent).join('/')}`
 const roles = ['Customer', 'Staff', 'Sales', 'Admin']
+const reportOrderStatuses = [
+  ['pending', 'Chờ xác nhận'], ['confirmed', 'Đã xác nhận'], ['preparing', 'Đang chuẩn bị'],
+  ['shipped', 'Đang giao'], ['delivered', 'Đã hoàn thành đơn hàng'], ['cancelled', 'Đã hủy'],
+]
 const orderTransitions = {
   pending: [['confirmed', 'Xác nhận'], ['cancelled', 'Hủy đơn']],
   confirmed: [['preparing', 'Soạn hàng'], ['cancelled', 'Hủy đơn']],
@@ -340,7 +344,19 @@ export default function AdminPage({ token, onToast, initialTab = 'overview', onT
       <div className="admin-report-summary"><div><span>Tổng hao hụt</span><b>{report?.loss_by_unit?.length ? report.loss_by_unit.map((row) => `${Number(row.so_luong)} ${row.don_vi_tinh}`).join(' · ') : '0 kg'}</b><small>{report?.loss_records ?? 0} phiếu ghi nhận</small></div><div><span>Sản phẩm bán tốt</span><b>{report?.top_products?.length ?? 0}</b><small>mặt hàng có phát sinh đơn</small></div></div>
       <div className="admin-report-panel"><h3>Doanh thu 7 ngày gần nhất</h3>{report?.sales?.length ? report.sales.map((row) => <div className="admin-report-row" key={row.ngay}><span>{date(row.ngay)}</span><div><b>{money(row.doanh_thu)}</b><small>{row.so_don} đơn</small></div></div>) : <EmptyAdmin text="Chưa phát sinh đơn hàng trong 7 ngày qua." />}</div>
       <div className="admin-report-panel"><h3>Sản phẩm bán chạy</h3>{report?.top_products?.length ? report.top_products.map((row) => <div className="admin-report-row" key={row.ma_san_pham}><span>{row.ten_san_pham}</span><div><b>{row.so_luong_ban} {row.don_vi_tinh || 'kg'}</b><small>{money(row.doanh_thu)}</small></div></div>) : <EmptyAdmin text="Chưa có dữ liệu bán hàng." />}</div>
-      <div className="admin-status-summary"><h3>Trạng thái đơn hàng</h3>{(report?.order_statuses || []).map((row) => <span key={row.trang_thai}>{row.trang_thai}<b>{row.so_don}</b></span>)}</div>
+      <div className="admin-status-summary">
+        <div className="admin-status-report-heading"><div><h3>Trạng thái đơn hàng</h3><p>Số đơn hiện tại theo từng bước xử lý</p></div><b>{(report?.order_statuses || []).reduce((sum, row) => sum + Number(row.so_don || 0), 0)} <small>đơn</small></b></div>
+        <div className="admin-status-report-grid">{reportOrderStatuses.map(([status, label]) => {
+          const count = Number(report?.order_statuses?.find((row) => row.trang_thai === status)?.so_don || 0)
+          const total = (report?.order_statuses || []).reduce((sum, row) => sum + Number(row.so_don || 0), 0)
+          const percent = total ? Math.round(count / total * 100) : 0
+          return <div className={`admin-status-report-item status-${status}`} key={status}>
+            <div className="admin-status-report-label"><span><i />{label}</span><b>{count} <small>đơn</small></b></div>
+            <div className="admin-status-track"><span style={{ width: `${percent}%` }} /></div>
+            <small className="admin-status-percent">{percent}% tổng số đơn</small>
+          </div>
+        })}</div>
+      </div>
     </>}
 
     {tab === 'losses' && <>
